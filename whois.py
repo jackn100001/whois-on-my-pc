@@ -1,5 +1,6 @@
 """
-Description: Combines netstat and who is in the command line
+
+Description: Combines netstat and whois in the command line
 Switches:
 	--description
 	--country
@@ -10,11 +11,8 @@ Switches:
 	-v, --verbose (outputs all of the above)
 	-d, --default (output the local and remote ip with country next to remote ip, e.g. 8.8.8.8 (US))
 	-c <country> (output all connections where remote ip is located in specified country)
-Example: python3 whois.py -c US --country --state --cidr
+Example: python3 whois.py -c US --state --cidr
 Output:	???
-
-
-Make a dictrionary called data that is dynamically populated based on arguments passed in at the command line
 
 """
 
@@ -71,8 +69,6 @@ def build_connection_data(opts, args, whois, addresses):
 	for opt, arg in opts:
 		key = opt[2:]
 
-		# print(json.dumps(whois["nets"][0], indent=4))
-
 		if opt == '-d' or opt == '':
 			continue
 		elif opt == '-v':
@@ -82,6 +78,8 @@ def build_connection_data(opts, args, whois, addresses):
 			connection_data[key] = get_long_option(key, whois)
 		elif opt == "-c":
 			country = arg
+			""" TODO: create a dictionary with the key as the country and the value with be an array of
+			all the connections with verbose output"""
 		else:
 			print("{} not a valid option".format(opt))
 
