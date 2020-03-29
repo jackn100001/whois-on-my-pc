@@ -23,87 +23,93 @@ import json
 import sys, getopt
 from ipwhois import IPWhois
 
+long_options = ["description","country","state","city","address","cidr"]
+
+def main():
+	opts, args = get_arguments()
+	all_connection_data = []
+	connections = psutil.net_connections()
+
+	# TODO: move all of below into its own function
+
+	for conn in connections:
+		if conn.raddr:
+			addresses = {"laddr": conn.laddr[0], "raddr": conn.raddr[0]}
+
+			if not_local(addresses['raddr']):
+				countries = count_countries(conn)
+				whois = perform_whois(str(addresses['raddr']))
+				all_connection_data.append(build_connection_data(opts, args, whois, addresses))
+
+	print(json.dumps(all_connection_data, indent=4))
+
+def get_arguments():
+	argv = sys.argv[1:]
+
+	try:
+	  	return getopt.getopt(argv,"vdc:",long_options)
+	except getopt.GetoptError:
+		if getopt.GetoptError.msg:
+		  	print(getopt.GetoptError.msg)
+		else:
+			print("Invalid options, please try again")
+
+		sys.exit(2)
+
+def not_local(remote_ip):
+	if not remote_ip.startswith('192') and not remote_ip.startswith(":") and not remote_ip.startswith("127"):
+		return True
+
+def perform_whois(ip):
+	whois = IPWhois(str(ip)).lookup_whois()
+	return whois
+
+def build_connection_data(opts, args, whois, addresses):
+	connection_data = {}
+	connection_data['addresses'] = addresses
+
+	for opt, arg in opts:
+		key = opt[2:]
+
+		# print(json.dumps(whois["nets"][0], indent=4))
+
+		if opt == '-d' or opt == '':
+			continue
+		elif opt == '-v':
+			for long_option in long_options:
+				connection_data[long_option] = get_long_option(long_option, whois)
+		elif key in long_options:
+			connection_data[key] = get_long_option(key, whois)
+		elif opt == "-c":
+			country = arg
+		else:
+			print("{} not a valid option".format(opt))
+
+	return connection_data
+
+def get_long_option(key, whois):
+	if whois.get(key) != None:
+		return whois[key]
+	elif whois["nets"][0].get(key) != None:
+		return whois["nets"][0][key]
+
+# possibly use for the -c <country> option
 def count_countries(conn):
 	countries = {}
 	netstat = IPWhois(str(conn.raddr[0])).lookup_whois()
 	jsonOut = json.dumps(netstat, indent=4)
-	# print(json.dumps(netstat["nets"][0], indent=4))
-	# print(json.dumps(netstat, indent=4))
 	country = netstat["nets"][0]["country"]
-	if (country in countries):
+
+	if country in countries:
 		countries[country] += 1
 	else:
 		countries[country] = 1
 
 	return countries
 
-def perform_whois(ip):
-	whois = IPWhois(str(ip)).lookup_whois()
-	return whois
+if __name__ == "__main__":
+	main()
 
-def not_local(remote_ip):
-	if (not remote_ip.startswith('192') and not remote_ip.startswith(":") and not remote_ip.startswith("127")):
-		return True
-
-def get_arguments():
-	argv = sys.argv[1:]
-
-	try:
-	  	return getopt.getopt(argv,"vdc:",["description","country","state","city","address","cidr"])
-	except getopt.GetoptError:
-	  	print(getopt.GetoptError.msg)
-	  	sys.exit(2)
-
-def build_connection_data(opts, args):
-	connection_data = {}
-
-	for opt, arg in opts:
-		key = opt[2:]
-
-		if (key in whois):
-			print("{}: {}".format(key.capitalize(), whois[key]))
-			connection_data[key.capitalize()] = whois[key]
-		elif (key in whois["nets"]):
-			print("{}: {}".format(key.capitalize(), whois["nets"][key]))
-			connection_data[key.capitalize()] = whois["nets"][key]
-		elif (key in whois["nets"][0]):
-			print("{}: {}".format(key.capitalize(), whois["nets"][0][key]))
-			connection_data[key.capitalize()] = whois["nets"][0][key]
-		elif (opt == "-c"):
-			country = arg
-		elif (opt == 'd'):
-			print("default")
-		elif (opt == 'v'):
-			print("verbose")
-		else:
-			print("{} not a valid option".format(opt))
-
-	return connection_data
-
-opts, args = get_arguments()
-
-connection_data = {}
-connections = psutil.net_connections()
-
-for conn in connections:
-	if (conn.raddr):
-		raddr = conn.raddr[0]
-
-		if (not_local(raddr)):
-			print("Showing details for connection to {}:".format(raddr))
-			countries = count_countries(conn)
-			whois = perform_whois(str(raddr))
-
-			# print(json.dumps(whois, indent=4))
-			connection_data[raddr] = build_connection_data(opts, args)
-			
-		print()
-
-
-"""for country in countries:
-	print(country, countries.get(country))"""
-
-print(json.dumps(connection_data, indent=4))
 
 
 
